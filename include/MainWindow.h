@@ -61,6 +61,7 @@ private:
     // Search Panel
     QGroupBox* m_searchGroup;
     QLineEdit* m_searchNameEdit;
+    QLineEdit* m_searchDirectorEdit;
     QDateEdit* m_startDateEdit;
     QDateEdit* m_endDateEdit;
     QCheckBox* m_favoritesOnlyCheckBox;

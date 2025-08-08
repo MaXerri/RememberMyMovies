@@ -106,7 +106,17 @@ bool MovieDatabase::deleteMovie(const Movie& movie) {
 QVector<Movie> MovieDatabase::searchByName(const QString& name) const {
     QVector<Movie> results;
     for (const Movie& movie : m_movies) {
-        if (movie.getName().compare(name, Qt::CaseInsensitive) == 0) {
+        if (movie.getName().contains(name, Qt::CaseInsensitive)) {
+            results.append(movie);
+        }
+    }
+    return results;
+}
+
+QVector<Movie> MovieDatabase::searchByDirector(const QString& director) const {
+    QVector<Movie> results;
+    for (const Movie& movie : m_movies) {
+        if (movie.getDirector().contains(director, Qt::CaseInsensitive)) {
             results.append(movie);
         }
     }

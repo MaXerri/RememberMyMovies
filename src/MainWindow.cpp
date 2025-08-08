@@ -191,6 +191,11 @@ void MainWindow::setupSearchPanel()
     m_searchNameEdit = new QLineEdit;
     m_searchNameEdit->setPlaceholderText("Exact movie name...");
     searchLayout->addRow("Movie Name:", m_searchNameEdit);
+
+    // Search by director
+    m_searchDirectorEdit = new QLineEdit;
+    m_searchDirectorEdit->setPlaceholderText("Exact director name...");
+    searchLayout->addRow("Director:", m_searchDirectorEdit);
     
     // Date range
     m_startDateEdit = new QDateEdit;
@@ -221,6 +226,7 @@ void MainWindow::setupSearchPanel()
     connect(m_searchButton, &QPushButton::clicked, this, &MainWindow::searchMovies);
     connect(m_clearSearchButton, &QPushButton::clicked, this, &MainWindow::clearSearch);
     connect(m_searchNameEdit, &QLineEdit::returnPressed, this, &MainWindow::searchMovies);
+    connect(m_searchDirectorEdit, &QLineEdit::returnPressed, this, &MainWindow::searchMovies);
 }
 
 void MainWindow::setupMovieTable()
@@ -312,6 +318,18 @@ void MainWindow::searchMovies()
     if (!searchName.isEmpty()) {
         results = m_database->searchByName(searchName);
     }
+
+    // Apply director filter (partial match, case-insensitive)
+    QString searchDirector = m_searchDirectorEdit->text().trimmed();
+    if (!searchDirector.isEmpty()) {
+        QVector<Movie> directorFiltered;
+        for (const Movie& movie : results) {
+            if (movie.getDirector().contains(searchDirector, Qt::CaseInsensitive)) {
+                directorFiltered.append(movie);
+            }
+        }
+        results = directorFiltered;
+    }
     
     // Apply date range filter
     if (!results.isEmpty()) {
@@ -346,6 +364,7 @@ void MainWindow::searchMovies()
 void MainWindow::clearSearch()
 {
     m_searchNameEdit->clear();
+    m_searchDirectorEdit->clear();
     m_startDateEdit->setDate(QDate::currentDate().addDays(-30));
     m_endDateEdit->setDate(QDate::currentDate());
     m_favoritesOnlyCheckBox->setChecked(false);

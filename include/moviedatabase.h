@@ -21,6 +21,7 @@ public:
     // Search functions
     QVector<Movie> getAllMovies() const { return m_movies; }
     QVector<Movie> searchByName(const QString& name) const;
+    QVector<Movie> searchByDirector(const QString& director) const;
     QVector<Movie> searchByDateRange(const QDate& startDate, const QDate& endDate) const;
     QVector<Movie> getFavorites() const;
     
