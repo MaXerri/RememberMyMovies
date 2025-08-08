@@ -53,6 +53,7 @@ private:
     QGroupBox* m_addMovieGroup;
     QLineEdit* m_movieNameEdit;
     QSpinBox* m_yearSpinBox;
+    QLineEdit* m_directorEdit;
     QTextEdit* m_notesEdit;
     QCheckBox* m_favoriteCheckBox;
     QPushButton* m_addButton;

@@ -12,7 +12,7 @@ MovieDatabase::MovieDatabase(const QString& csvFilePath) : m_csvFilePath(csvFile
         QFile file(m_csvFilePath);
         if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
             QTextStream out(&file);
-            out << "Movie Name,Year,Date Added,Notes,Is Favorite\n";
+            out << "Movie Name,Year,Director,Date Added,Notes,Is Favorite\n";
             file.close();
         }
     }
@@ -61,8 +61,8 @@ bool MovieDatabase::saveToCsv() {
     
     QTextStream out(&file);
     
-    // Write header
-    out << "Movie Name,Year,Date Added,Notes,Is Favorite\n";
+    // Write header (includes Director for new format)
+    out << "Movie Name,Year,Director,Date Added,Notes,Is Favorite\n";
     
     // Write movie data
     for (const Movie& movie : m_movies) {

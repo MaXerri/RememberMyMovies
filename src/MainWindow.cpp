@@ -150,6 +150,11 @@ void MainWindow::setupAddMovieForm()
     m_yearSpinBox->setRange(1900, QDate::currentDate().year() + 5);
     m_yearSpinBox->setValue(QDate::currentDate().year());
     formLayout->addRow("Year:", m_yearSpinBox);
+
+    // Director
+    m_directorEdit = new QLineEdit;
+    m_directorEdit->setPlaceholderText("e.g., Christopher Nolan");
+    formLayout->addRow("Director:", m_directorEdit);
     
     // Notes
     m_notesEdit = new QTextEdit;
@@ -221,9 +226,9 @@ void MainWindow::setupSearchPanel()
 void MainWindow::setupMovieTable()
 {
     m_movieTable = new QTableWidget;
-    m_movieTable->setColumnCount(5);
+    m_movieTable->setColumnCount(6);
     
-    QStringList headers = {"Movie Name", "Year", "Date Added", "Notes", "Favorite"};
+    QStringList headers = {"Movie Name", "Year", "Director", "Date Added", "Notes", "Favorite"};
     m_movieTable->setHorizontalHeaderLabels(headers);
     
     // Configure table appearance
@@ -237,9 +242,10 @@ void MainWindow::setupMovieTable()
     header->setStretchLastSection(false);
     header->resizeSection(0, 200); // Movie Name
     header->resizeSection(1, 80);  // Year
-    header->resizeSection(2, 120); // Date Added
-    header->resizeSection(3, 300); // Notes
-    header->resizeSection(4, 80);  // Favorite
+    header->resizeSection(2, 180); // Director
+    header->resizeSection(3, 120); // Date Added
+    header->resizeSection(4, 300); // Notes
+    header->resizeSection(5, 80);  // Favorite
     
     // Connect table signals
     connect(m_movieTable, &QTableWidget::cellDoubleClicked, this, &MainWindow::onTableDoubleClicked);
@@ -261,6 +267,7 @@ void MainWindow::addMovie()
         // Update existing movie
         Movie updatedMovie(movieName, 
                           m_yearSpinBox->value(),
+                          m_directorEdit->text().trimmed(),
                           m_notesEdit->toPlainText().trimmed(),
                           m_favoriteCheckBox->isChecked());
         
@@ -281,6 +288,7 @@ void MainWindow::addMovie()
         // Create new movie
         Movie movie(movieName, 
                     m_yearSpinBox->value(),
+                    m_directorEdit->text().trimmed(),
                     m_notesEdit->toPlainText().trimmed(),
                     m_favoriteCheckBox->isChecked());
         
@@ -362,9 +370,10 @@ void MainWindow::updateMovieTable(const QVector<Movie>& movies)
         
         m_movieTable->setItem(i, 0, new QTableWidgetItem(movie.getName()));
         m_movieTable->setItem(i, 1, new QTableWidgetItem(QString::number(movie.getYear())));
-        m_movieTable->setItem(i, 2, new QTableWidgetItem(movie.getDateAdded().toString("yyyy-MM-dd")));
-        m_movieTable->setItem(i, 3, new QTableWidgetItem(movie.getNotes()));
-        m_movieTable->setItem(i, 4, new QTableWidgetItem(movie.isFavorite() ? "★" : ""));
+        m_movieTable->setItem(i, 2, new QTableWidgetItem(movie.getDirector()));
+        m_movieTable->setItem(i, 3, new QTableWidgetItem(movie.getDateAdded().toString("yyyy-MM-dd")));
+        m_movieTable->setItem(i, 4, new QTableWidgetItem(movie.getNotes()));
+        m_movieTable->setItem(i, 5, new QTableWidgetItem(movie.isFavorite() ? "★" : ""));
     }
     
     // Auto-resize the notes column to fit content
@@ -438,6 +447,7 @@ void MainWindow::populateEditForm(const Movie& movie)
 {
     m_movieNameEdit->setText(movie.getName());
     m_yearSpinBox->setValue(movie.getYear());
+    m_directorEdit->setText(movie.getDirector());
     m_notesEdit->setPlainText(movie.getNotes());
     m_favoriteCheckBox->setChecked(movie.isFavorite());
     
@@ -448,6 +458,7 @@ void MainWindow::clearAddForm()
 {
     m_movieNameEdit->clear();
     m_yearSpinBox->setValue(QDate::currentDate().year());
+    m_directorEdit->clear();
     m_notesEdit->clear();
     m_favoriteCheckBox->setChecked(false);
     m_movieNameEdit->setFocus();
