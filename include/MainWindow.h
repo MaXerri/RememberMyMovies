@@ -17,6 +17,7 @@
 #include <QLabel>
 #include <QStatusBar>
 #include <QSplitter>
+#include <QComboBox>
 #include "moviedatabase.h"
 
 class MainWindow : public QMainWindow
@@ -41,6 +42,7 @@ private:
     void setupSearchPanel();
     void setupMovieTable();
     void updateMovieTable(const QVector<Movie>& movies);
+    void applySorting(QVector<Movie>& movies) const;
     void clearAddForm();
     void populateEditForm(const Movie& movie); 
     void showStatusMessage(const QString& message, int timeout = 3000);
@@ -61,6 +63,7 @@ private:
     // Search Panel
     QGroupBox* m_searchGroup;
     QLineEdit* m_searchNameEdit;
+    QLineEdit* m_searchDirectorEdit;
     QDateEdit* m_startDateEdit;
     QDateEdit* m_endDateEdit;
     QCheckBox* m_favoritesOnlyCheckBox;
@@ -71,6 +74,7 @@ private:
     QTableWidget* m_movieTable;
     QPushButton* m_editButton;        
     QPushButton* m_deleteButton;
+    QComboBox* m_sortByCombo;
     QLabel* m_statusLabel;
     
     // Data
