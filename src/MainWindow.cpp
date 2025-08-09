@@ -6,14 +6,18 @@
 #include <QHeaderView>
 #include <QDate>
 #include <QDebug>
+#include <algorithm>
+#include <QVariant>
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), m_database(new MovieDatabase("data/movies.csv")), m_editingIndex(-1)
+    : QMainWindow(parent), m_database(new MovieDatabase()), m_editingIndex(-1)
 {
     setupUI();
     
+    // Optionally wait for backend to be ready (in case it is being auto-started)
+    m_database->waitUntilReady(10000);
     // Load existing movies
-    if (!m_database->loadFromCsv()) {
+    if (!m_database->loadFromApi()) {
         showStatusMessage("Error loading movies: " + m_database->getLastError());
     } else {
         showStatusMessage(QString("Loaded %1 movies").arg(m_database->getMovieCount()));
@@ -61,11 +65,24 @@ void MainWindow::setupUI()
     m_editButton = new QPushButton("Edit Selected");
     m_deleteButton = new QPushButton("Delete Selected");
     m_deleteButton->setStyleSheet("background-color: #dc3545;");
+    
+    // Sort controls
+    QLabel* sortLabel = new QLabel("Sort by:");
+    m_sortByCombo = new QComboBox;
+    m_sortByCombo->addItem("Date Added (newest)", QVariant("date_desc"));
+    m_sortByCombo->addItem("Date Added (oldest)", QVariant("date_asc"));
+    m_sortByCombo->addItem("Name (A→Z)", QVariant("name_asc"));
+    m_sortByCombo->addItem("Name (Z→A)", QVariant("name_desc"));
+    m_sortByCombo->addItem("Year (newest)", QVariant("year_desc"));
+    m_sortByCombo->addItem("Year (oldest)", QVariant("year_asc"));
+    
     setupMovieTable();
     
     tableButtonLayout->addWidget(m_editButton);
     tableButtonLayout->addWidget(m_deleteButton);
     tableButtonLayout->addStretch();
+    tableButtonLayout->addWidget(sortLabel);
+    tableButtonLayout->addWidget(m_sortByCombo);
     
     rightLayout->addLayout(tableButtonLayout);
     rightLayout->addWidget(m_movieTable);
@@ -133,6 +150,14 @@ void MainWindow::setupUI()
             color: white;
         }
     )");
+
+    // Sorting change triggers table refresh based on current view
+    connect(m_sortByCombo, &QComboBox::currentTextChanged, this, [this](const QString&) {
+        // Re-apply sorting to current movies and refresh table
+        QVector<Movie> copy = m_currentMovies;
+        applySorting(copy);
+        updateMovieTable(copy);
+    });
 }
 
 void MainWindow::setupAddMovieForm()
@@ -281,10 +306,12 @@ void MainWindow::addMovie()
         Movie originalMovie = m_currentMovies[m_editingIndex];
         updatedMovie.setDateAdded(originalMovie.getDateAdded());
         
-        // Update in database
-        m_database->updateMovie(m_editingIndex, updatedMovie);
-        
-        showStatusMessage(QString("Updated movie: %1").arg(movieName));
+        // Update in database using original identity
+        if (m_database->updateMovie(originalMovie, updatedMovie)) {
+            showStatusMessage(QString("Updated movie: %1").arg(movieName));
+        } else {
+            QMessageBox::warning(this, "Update Failed", m_database->getLastError());
+        }
         
         // Exit edit mode
         m_editingIndex = -1;
@@ -292,6 +319,23 @@ void MainWindow::addMovie()
         findChild<QLabel*>("editLabel")->setVisible(false);
     } else {
         // Create new movie
+        // Prevent duplicates by Name (case-insensitive) + Year
+        const int newYear = m_yearSpinBox->value();
+        const QString newName = movieName;
+        const QVector<Movie> all = m_database->getAllMovies();
+        for (const Movie& existing : all) {
+            if (existing.getYear() == newYear && existing.getName().compare(newName, Qt::CaseInsensitive) == 0) {
+                QMessageBox::warning(
+                    this,
+                    "Duplicate Movie",
+                    QString("%1 (%2) is already in your list.\nDuplicates are not allowed.")
+                        .arg(existing.getName())
+                        .arg(existing.getYear())
+                );
+                return;
+            }
+        }
+
         Movie movie(movieName, 
                     m_yearSpinBox->value(),
                     m_directorEdit->text().trimmed(),
@@ -299,9 +343,11 @@ void MainWindow::addMovie()
                     m_favoriteCheckBox->isChecked());
         
         // Add to database
-        m_database->addMovie(movie);
-        
-        showStatusMessage(QString("Added movie: %1").arg(movieName));
+        if (m_database->addMovie(movie)) {
+            showStatusMessage(QString("Added movie: %1").arg(movieName));
+        } else {
+            QMessageBox::warning(this, "Add Failed", m_database->getLastError());
+        }
     }
     
     // Update display
@@ -357,6 +403,8 @@ void MainWindow::searchMovies()
         results = favoriteFiltered;
     }
     
+    // Apply current sort selection before displaying
+    applySorting(results);
     updateMovieTable(results);
     showStatusMessage(QString("Found %1 movies").arg(results.size()));
 }
@@ -376,7 +424,9 @@ void MainWindow::clearSearch()
 void MainWindow::refreshTable()
 {
     m_currentMovies = m_database->getAllMovies();
-    updateMovieTable(m_currentMovies);
+    QVector<Movie> sorted = m_currentMovies;
+    applySorting(sorted);
+    updateMovieTable(sorted);
 }
 
 void MainWindow::updateMovieTable(const QVector<Movie>& movies)
@@ -397,6 +447,46 @@ void MainWindow::updateMovieTable(const QVector<Movie>& movies)
     
     // Auto-resize the notes column to fit content
     m_movieTable->resizeRowsToContents();
+}
+
+void MainWindow::applySorting(QVector<Movie>& movies) const
+{
+    if (movies.isEmpty()) return;
+    const QString key = m_sortByCombo ? m_sortByCombo->currentData().toString() : QString("date_desc");
+
+    auto compareDateAsc = [](const Movie& a, const Movie& b) {
+        return a.getDateAdded() < b.getDateAdded();
+    };
+    auto compareDateDesc = [](const Movie& a, const Movie& b) {
+        return a.getDateAdded() > b.getDateAdded();
+    };
+    auto compareNameAsc = [](const Movie& a, const Movie& b) {
+        return a.getName().localeAwareCompare(b.getName()) < 0;
+    };
+    auto compareNameDesc = [](const Movie& a, const Movie& b) {
+        return a.getName().localeAwareCompare(b.getName()) > 0;
+    };
+    auto compareYearAsc = [](const Movie& a, const Movie& b) {
+        return a.getYear() < b.getYear();
+    };
+    auto compareYearDesc = [](const Movie& a, const Movie& b) {
+        return a.getYear() > b.getYear();
+    };
+
+    if (key == "date_asc") {
+        std::stable_sort(movies.begin(), movies.end(), compareDateAsc);
+    } else if (key == "name_asc") {
+        std::stable_sort(movies.begin(), movies.end(), compareNameAsc);
+    } else if (key == "name_desc") {
+        std::stable_sort(movies.begin(), movies.end(), compareNameDesc);
+    } else if (key == "year_asc") {
+        std::stable_sort(movies.begin(), movies.end(), compareYearAsc);
+    } else if (key == "year_desc") {
+        std::stable_sort(movies.begin(), movies.end(), compareYearDesc);
+    } else {
+        // default date_desc
+        std::stable_sort(movies.begin(), movies.end(), compareDateDesc);
+    }
 }
 
 void MainWindow::editMovie()
@@ -434,12 +524,13 @@ void MainWindow::deleteMovie()
     
     if (reply == QMessageBox::Yes) {
         // Find the movie in the full database and remove it
-        m_database->deleteMovie(movieToDelete);
-        
-        // Update display
-        refreshTable();
-        
-        showStatusMessage(QString("Deleted movie: %1").arg(movieToDelete.getName()));
+        if (m_database->deleteMovie(movieToDelete)) {
+            // Update display
+            refreshTable();
+            showStatusMessage(QString("Deleted movie: %1").arg(movieToDelete.getName()));
+        } else {
+            QMessageBox::warning(this, "Delete Failed", m_database->getLastError());
+        }
     }
 }
 

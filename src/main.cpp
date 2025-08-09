@@ -12,6 +12,8 @@ int main(int argc, char *argv[])
     app.setApplicationVersion("1.0");
     app.setOrganizationName("Your Name");
     
+    // No Docker auto-start. Expect the backend to be running separately.
+    
     MainWindow window;
     window.show();
     

@@ -1,2 +1,45 @@
-build/
+# OS
 .DS_Store
+Thumbs.db
+
+# Python virtual environments
+.venv/
+backend/.venv/
+
+# Environment files
+.env
+.env.*
+backend/.env
+backend/.env.*
+
+# Python cache/bytecode
+__pycache__/
+*.py[cod]
+
+# Logs
+*.log
+backend/logs/
+
+# SQLite databases
+backend/db/*.db
+
+# Build artifacts
+build/
+build-release/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+install_manifest.txt
+
+# Qt/IDE
+*.user
+*.pro.user
+.vscode/
+.idea/
+
+# Generated icons/work dirs
+resources/AppIcon.icns
+macos/
+
+# Node (if present in future)
+node_modules/

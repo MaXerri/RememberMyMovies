@@ -5,102 +5,162 @@
 #include <QTextStream>
 #include <QDir>
 #include <QDebug>
+#include <QNetworkRequest>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QEventLoop>
+#include <QTimer>
 
-MovieDatabase::MovieDatabase(const QString& csvFilePath) : m_csvFilePath(csvFilePath) {
-    // Ensure the CSV file exists
-    if (!QFile::exists(m_csvFilePath)) {
-        QFile file(m_csvFilePath);
-        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            QTextStream out(&file);
-            out << "Movie Name,Year,Director,Date Added,Notes,Is Favorite\n";
-            file.close();
-        }
-    }
-}
+MovieDatabase::MovieDatabase(const QString& apiBaseUrl) : m_apiBaseUrl(apiBaseUrl) {}
 
-bool MovieDatabase::loadFromCsv() {
+bool MovieDatabase::loadFromApi() {
     clearError();
-    QFile file(m_csvFilePath);
-    
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        setError("Cannot open CSV file for reading");
+    QNetworkRequest req(QUrl(m_apiBaseUrl + "/movies"));
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    QNetworkReply* reply = m_network.get(req);
+    QEventLoop loop;
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec();
+    if (reply->error() != QNetworkReply::NoError) {
+        setError(reply->errorString());
+        reply->deleteLater();
         return false;
     }
-    
-    QTextStream in(&file);
-    m_movies.clear();
-    
-    // Skip header line
-    if (!in.atEnd()) {
-        in.readLine();
+    const QByteArray data = reply->readAll();
+    reply->deleteLater();
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !doc.isArray()) {
+        setError("Invalid response from API");
+        return false;
     }
-    
-    while (!in.atEnd()) {
-        QString line = in.readLine().trimmed();
-        if (!line.isEmpty()) {
-            Movie movie = Movie::fromCsvString(line);
-            if (!movie.getName().isEmpty()) {
-                m_movies.append(movie);
+    m_movies.clear();
+    for (const QJsonValue& val : doc.array()) {
+        if (val.isObject()) {
+            m_movies.append(Movie::fromJson(val.toObject()));
+        }
+    }
+    qDebug() << "Loaded" << m_movies.size() << "movies from API";
+    return true;
+}
+
+// removed CSV saving in API mode
+
+bool MovieDatabase::addMovie(const Movie& movie) {
+    clearError();
+    QNetworkRequest req(QUrl(m_apiBaseUrl + "/movies"));
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    QJsonObject body = movie.toJson();
+    if (body.value("date_added").toString().isEmpty()) {
+        body["date_added"] = QDate::currentDate().toString("yyyy-MM-dd");
+    }
+    QNetworkReply* reply = m_network.post(req, QJsonDocument(body).toJson());
+    QEventLoop loop;
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec();
+    if (reply->error() != QNetworkReply::NoError) {
+        setError(reply->errorString());
+        reply->deleteLater();
+        return false;
+    }
+    const QByteArray data = reply->readAll();
+    reply->deleteLater();
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (doc.isObject()) {
+        m_movies.append(Movie::fromJson(doc.object()));
+        return true;
+    }
+    setError("Invalid response from API");
+    return false;
+}
+
+bool MovieDatabase::updateMovie(const Movie& original, const Movie& movie) {
+    QNetworkRequest req(QUrl(m_apiBaseUrl + "/movies"));
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    QJsonObject payload;
+    QJsonObject originalKey;
+    originalKey["name"] = original.getName();
+    originalKey["year"] = original.getYear();
+    originalKey["date_added"] = original.getDateAdded().toString("yyyy-MM-dd");
+    payload["original"] = originalKey;
+    payload["updated"] = movie.toJson();
+    clearError();
+    QNetworkReply* reply = m_network.put(req, QJsonDocument(payload).toJson());
+    QEventLoop loop;
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec();
+    if (reply->error() != QNetworkReply::NoError) {
+        setError(reply->errorString());
+        reply->deleteLater();
+        return false;
+    }
+    const QByteArray data = reply->readAll();
+    reply->deleteLater();
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (doc.isObject()) {
+        Movie updated = Movie::fromJson(doc.object());
+        for (int i = 0; i < m_movies.size(); ++i) {
+            if (m_movies[i].getName() == original.getName() &&
+                m_movies[i].getYear() == original.getYear() &&
+                m_movies[i].getDateAdded() == original.getDateAdded()) {
+                m_movies[i] = updated;
+                break;
             }
         }
+        return true;
     }
-    
-    file.close();
-    qDebug() << "Loaded" << m_movies.size() << "movies from CSV";
-    return true;
-}
-
-bool MovieDatabase::saveToCsv() {
-    clearError();
-    QFile file(m_csvFilePath);
-    
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        setError("Cannot open CSV file for writing");
-        return false;
-    }
-    
-    QTextStream out(&file);
-    
-    // Write header (includes Director for new format)
-    out << "Movie Name,Year,Director,Date Added,Notes,Is Favorite\n";
-    
-    // Write movie data
-    for (const Movie& movie : m_movies) {
-        out << movie.toCsvString() << "\n";
-    }
-    
-    file.close();
-    qDebug() << "Saved" << m_movies.size() << "movies to CSV";
-    return true;
-}
-
-void MovieDatabase::addMovie(const Movie& movie) {
-    m_movies.append(movie);
-    saveToCsv(); // Auto-save after adding
-}
-
-bool MovieDatabase::updateMovie(int index, const Movie& movie) {
-    if (index < 0 || index >= m_movies.size()) {
-        setError("Invalid movie index for update");
-        return false;
-    }
-    
-    m_movies[index] = movie;
-    return saveToCsv();
+    setError("Invalid response from API");
+    return false;
 }
 
 bool MovieDatabase::deleteMovie(const Movie& movie) {
+    QNetworkRequest req(QUrl(m_apiBaseUrl + "/movies/delete"));
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    QJsonObject key;
+    key["name"] = movie.getName();
+    key["year"] = movie.getYear();
+    key["date_added"] = movie.getDateAdded().toString("yyyy-MM-dd");
+    clearError();
+    QNetworkReply* reply = m_network.post(req, QJsonDocument(key).toJson());
+    QEventLoop loop;
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec();
+    if (reply->error() != QNetworkReply::NoError) {
+        setError(reply->errorString());
+        reply->deleteLater();
+        return false;
+    }
+    // On success, remove locally
     for (int i = 0; i < m_movies.size(); ++i) {
-        if (m_movies[i].getName() == movie.getName() && 
+        if (m_movies[i].getName() == movie.getName() &&
             m_movies[i].getYear() == movie.getYear() &&
             m_movies[i].getDateAdded() == movie.getDateAdded()) {
             m_movies.removeAt(i);
-            return saveToCsv();
+            break;
         }
     }
-    
-    setError("Movie not found for deletion");
-    return false;
+    reply->deleteLater();
+    return true;
+}
+
+bool MovieDatabase::waitUntilReady(int timeoutMs) {
+    clearError();
+    QNetworkRequest req(QUrl(m_apiBaseUrl + "/movies"));
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    QNetworkReply* reply = m_network.get(req);
+    QEventLoop loop;
+    QTimer timer;
+    timer.setSingleShot(true);
+    QObject::connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    timer.start(timeoutMs);
+    loop.exec();
+    bool ok = (reply->error() == QNetworkReply::NoError);
+    if (!ok && reply->error() != QNetworkReply::NoError) {
+        setError(reply->errorString());
+    }
+    reply->deleteLater();
+    return ok;
 }
 
 QVector<Movie> MovieDatabase::searchByName(const QString& name) const {

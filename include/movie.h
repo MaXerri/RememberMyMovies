@@ -4,6 +4,7 @@
 
 #include <QString>
 #include <QDate>
+#include <QJsonObject>
 
 class Movie {
 public:
@@ -30,6 +31,10 @@ public:
     // CSV conversion
     QString toCsvString() const;
     static Movie fromCsvString(const QString& csvLine);
+
+    // JSON conversion for API
+    QJsonObject toJson() const;
+    static Movie fromJson(const QJsonObject& obj);
     
 private:
     QString m_name;
@@ -40,6 +45,6 @@ private:
     bool m_isFavorite;
 };
 
-#endif // MOVIE_Hendif // MOVIE_H
+#endif // MOVIE_H
 
 

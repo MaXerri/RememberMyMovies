@@ -6,17 +6,19 @@
 #include "movie.h"
 #include <QVector>
 #include <QString>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
 
 class MovieDatabase {
 public:
-    MovieDatabase(const QString& csvFilePath = "movies.csv");
+    MovieDatabase(const QString& apiBaseUrl = "http://127.0.0.1:8000");
     
     // Core operations
-    bool loadFromCsv();
-    bool saveToCsv();
-    void addMovie(const Movie& movie);
-    bool updateMovie(int index, const Movie& movie);
+    bool loadFromApi();
+    bool addMovie(const Movie& movie);
+    bool updateMovie(const Movie& original, const Movie& updatedMovie);
     bool deleteMovie(const Movie& movie);
+    bool waitUntilReady(int timeoutMs = 10000);
     
     // Search functions
     QVector<Movie> getAllMovies() const { return m_movies; }
@@ -28,10 +30,12 @@ public:
     // Utility
     int getMovieCount() const { return m_movies.size(); }
     QString getLastError() const { return m_lastError; }
+    QString getApiBaseUrl() const { return m_apiBaseUrl; }
     
 private:
     QVector<Movie> m_movies;
-    QString m_csvFilePath;
+    QString m_apiBaseUrl;
+    QNetworkAccessManager m_network;
     QString m_lastError;
     
     void clearError() { m_lastError.clear(); }

@@ -2,6 +2,8 @@
 // ============== Movie.cpp ==============
 #include "movie.h"
 #include <QStringList>
+#include <QJsonObject>
+#include <QJsonValue>
 
 Movie::Movie() : m_year(0), m_dateAdded(QDate::currentDate()), m_isFavorite(false) {}
 
@@ -69,6 +71,28 @@ Movie Movie::fromCsvString(const QString& csvLine) {
         movie.setFavorite(parts[4].trimmed() == "1");
     }
     
+    return movie;
+}
+
+QJsonObject Movie::toJson() const {
+    QJsonObject obj;
+    obj["name"] = m_name;
+    obj["year"] = m_year;
+    obj["director"] = m_director;
+    obj["date_added"] = m_dateAdded.toString("yyyy-MM-dd");
+    obj["notes"] = m_notes;
+    obj["is_favorite"] = m_isFavorite;
+    return obj;
+}
+
+Movie Movie::fromJson(const QJsonObject& obj) {
+    Movie movie;
+    movie.setName(obj.value("name").toString());
+    movie.setYear(obj.value("year").toInt());
+    movie.setDirector(obj.value("director").toString());
+    movie.m_dateAdded = QDate::fromString(obj.value("date_added").toString(), "yyyy-MM-dd");
+    movie.setNotes(obj.value("notes").toString());
+    movie.setFavorite(obj.value("is_favorite").toBool());
     return movie;
 }
 
