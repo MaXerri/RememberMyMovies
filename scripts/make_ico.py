@@ -13,7 +13,7 @@ except ImportError:
 
 def main():
     project_root = Path(__file__).resolve().parents[1]
-    src_png = Path(sys.argv[1]) if len(sys.argv) > 1 else project_root / 'icon.png'
+    src_png = Path(sys.argv[1]) if len(sys.argv) > 1 else project_root / 'icon_bg.png'
     out_ico = Path(sys.argv[2]) if len(sys.argv) > 2 else project_root / 'resources' / 'AppIcon.ico'
 
     if not src_png.exists():

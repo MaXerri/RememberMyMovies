@@ -6,7 +6,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-SRC_PNG="${1:-$PROJECT_ROOT/icon.png}"
+SRC_PNG="${1:-$PROJECT_ROOT/icon_bg.png}"
 ICONSET_DIR="$PROJECT_ROOT/macos/AppIcon.iconset"
 OUT_DIR="$PROJECT_ROOT/resources"
 OUT_ICNS="$OUT_DIR/AppIcon.icns"
