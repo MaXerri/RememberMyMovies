@@ -8,7 +8,7 @@ OS="$(uname -s)"
 case "$OS" in
     Darwin)
         echo "--- Generating macOS icon ---"
-        scripts/make_icns.sh
+        sh scripts/make_icns.sh
         ;;
     Linux)
         echo "--- Skipping icon generation for Linux ---"
