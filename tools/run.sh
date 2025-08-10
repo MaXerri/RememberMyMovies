@@ -8,6 +8,7 @@ source backend/.venv/bin/activate
 
 # Start backend server in the background
 echo "--- Starting backend server ---"
+export APP_ENV=production
 uvicorn backend.app:app --host 0.0.0.0 --port 8000 --workers 1 &
 SERVER_PID=$!
 echo "Backend server started with PID: $SERVER_PID"

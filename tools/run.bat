@@ -8,6 +8,7 @@ call backend\.venv\Scripts\activate.bat
 
 REM Start backend server in a new window
 echo --- Starting backend server in a new window ---
+set APP_ENV=production
 start "MovieReview Backend" cmd /c "uvicorn backend.app:app --host 0.0.0.0 --port 8000 --workers 1"
 
 REM Run the frontend application
